@@ -15,6 +15,7 @@ import torchvision
 import torchvision.transforms as transforms
 
 from model import *
+from utils import *
 
 
 def str2bool(s):
@@ -39,7 +40,7 @@ parser.add_argument('--mia_data_dir', type=str, default='./mia_dataset')
 
 parser.add_argument('--shadow_train', type=str2bool, default='f')
 parser.add_argument('--target_train', type=str2bool, default='f')
-parser.add_argument('--build_mia_data', type=str2bool, default='t')
+parser.add_argument('--build_mia_data', type=str2bool, default='f')
 parser.add_argument('--attack_train', type=str2bool, default='f')
 parser.add_argument('--attack_test', type=str2bool, default='t')
 # parser.add_argument('--shadow_test', type=str2bool, default='t')
@@ -55,8 +56,8 @@ if not os.path.exists(config.mia_data_dir):
     os.mkdir(config.mia_data_dir)
 
 print(torch.__version__)
-torch.set_default_tensor_type(torch.DoubleTensor)
-torch.set_default_dtype(torch.double)
+torch.set_default_tensor_type(torch.FloatTensor)
+torch.set_default_dtype(torch.float)
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print(device)
 
@@ -181,7 +182,9 @@ def save_prediction(net, name, data_loader, train_flag):
     with torch.no_grad():
         for idx, (images, labels) in enumerate(data_loader):
             images, labels = images.to(device), labels.to(device)
+            # print(images)
             outputs = net(images).cpu().numpy().squeeze().reshape(config.batch_size, -1)
+
             labels = labels.cpu().numpy().reshape(config.batch_size, -1)
 
             if idx == 0:
@@ -203,14 +206,15 @@ def attack_train(net, train_in_loader, train_out_loader):
         running_loss = 0.0
         for i, (in_data, out_data) in enumerate(zip(train_in_loader, train_out_loader)):
             x1 = torch.from_numpy(np.vstack([in_data[0], out_data[0]]))
-            label = torch.from_numpy(np.vstack([in_data[2].reshape([-1, 1]), out_data[2].reshape([-1, 1])]))
+            label = torch.from_numpy(np.vstack([in_data[2].reshape([-1, 1]), out_data[2].reshape([-1, 1])])).float()
 
             x2 = np.vstack([in_data[1].reshape([-1, 1]), out_data[1].reshape([-1, 1])])
-            onehot_x2 = np.zeros((config.batch_size, 10))
+            onehot_x2 = np.zeros((config.batch_size, 10), dtype=float)
             for idx in range(config.batch_size):
                 onehot_x2[idx, int(x2[idx])] = 1
 
-            x2 = torch.from_numpy(onehot_x2)
+            x2 = torch.from_numpy(onehot_x2).float()
+            # print(x2)
             # get the inputs
             x1, x2, label = x1.to(device), x2.to(device), label.to(device)
 
@@ -233,11 +237,8 @@ def attack_train(net, train_in_loader, train_out_loader):
 
 
 def attack_test(net, in_loader, out_loader):
-    net.load_state_dict(torch.load(os.path.join(config.model_dir, name + '.pth')))
+    net.load_state_dict(torch.load(os.path.join(config.model_dir, 'attack.pth')))
     net.eval()
-
-    correct = 0
-    total = 0
 
     with torch.no_grad():
         for i, (in_data, out_data) in enumerate(zip(in_loader, out_loader)):
@@ -249,16 +250,30 @@ def attack_test(net, in_loader, out_loader):
             for idx in range(config.batch_size):
                 onehot_x2[idx, int(x2[idx])] = 1
 
-            x2 = torch.from_numpy(onehot_x2)
+            x2 = torch.from_numpy(onehot_x2).float()
             # get the inputs
             x1, x2, label = x1.to(device), x2.to(device), label.to(device)
 
             # forward + backward + optimize
             outputs = net(x1, x2)
 
-            print(outputs)
-            print(label)
-            sys.exit(1)
+            if i == 0:
+                target = label.cpu()
+                predict = outputs.cpu()
+            else:
+                target = np.vstack([target, label.cpu()])
+                predict = np.vstack([predict, outputs.cpu()])
+
+            # print(outputs)
+            # print(label)
+
+    print(target.shape)
+    print(predict.shape)
+    auc, acc = calculate_auc_acc(target, predict)
+    print(auc, acc)
+
+    sys.exit(1)
+
 
     print('\tAccuracy of the network on the 10000 test images: %d %%' % (
             100 * correct / total))
@@ -359,10 +374,10 @@ def main():
     if config.attack_train:
         print('Training attack model')
 
-        name = 'shadow_total_in.csv'
+        name = 'shadow_in.csv'
         mia_set_in = MIADataset(name, config.mia_data_dir)
 
-        name = 'shadow_total_out.csv'
+        name = 'shadow_out.csv'
         mia_set_out = MIADataset(name, config.mia_data_dir)
 
         in_loader = torch.utils.data.DataLoader(mia_set_in, batch_size=int(config.batch_size/2), shuffle=True)
@@ -375,10 +390,10 @@ def main():
     if config.attack_test:
         print('Testing attack model')
 
-        name = 'target_total_in.csv'
+        name = 'target_in.csv'
         mia_set_in = MIADataset(name, config.mia_data_dir)
 
-        name = 'target_total_out.csv'
+        name = 'target_out.csv'
         mia_set_out = MIADataset(name, config.mia_data_dir)
 
         in_loader = torch.utils.data.DataLoader(mia_set_in, batch_size=int(config.batch_size/2), shuffle=True)
@@ -387,7 +402,6 @@ def main():
         attack_model = AttackModel()
         attack_model.to(device)
         attack_test(attack_model, in_loader, out_loader)
-
 
 
 if __name__ == "__main__":

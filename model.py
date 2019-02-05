@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import numpy as np
 
 import torch
 import torch.nn as nn
@@ -9,6 +10,9 @@ from torch.utils.data import *
 
 import torchvision
 import torchvision.transforms as transforms
+
+torch.set_default_tensor_type(torch.FloatTensor)
+torch.set_default_dtype(torch.float)
 
 class Net(nn.Module):
     def __init__(self):
@@ -71,8 +75,8 @@ class MIADataset(Dataset):
         return len(self.mia_data)
 
     def __getitem__(self, idx):
-        x1 = self.mia_data.iloc[idx, 0:-2].values
-        x2 = self.mia_data.iloc[idx, -2]
+        x1 = self.mia_data.iloc[idx, 0:-2].values.astype(np.float32)
+        x2 = self.mia_data.iloc[idx, -2].astype(np.float32)
         label = self.mia_data.iloc[idx, -1]
 
         return [x1, x2, label]
