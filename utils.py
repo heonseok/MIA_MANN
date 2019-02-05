@@ -55,36 +55,6 @@ def calculate_metric_for_each_q(target, pred, q, num_q):
     return count, result
 
 
-# ########## LOGGER ##########
-# def set_logger(name, path, log_file, logging_level, display=True):
-#     logger = logging.getLogger(name)
-#
-#     if logger.hasHandlers():
-#         logger.handlers.clear()
-#
-#     streamFormatter = logging.Formatter('[%(levelname)s] %(message)s')
-#     streamHandler = logging.StreamHandler()
-#     streamHandler.setFormatter(streamFormatter)
-#     streamHandler.setLevel(logging.INFO)
-#
-#     if not os.path.exists('log/'+path):
-#         os.makedirs('log/'+path)
-#
-#     fileFormatter = logging.Formatter('%(message)s')
-#     fileHandler = logging.FileHandler(os.path.join('log', path, log_file))
-#     fileHandler.setFormatter(fileFormatter)
-#     fileHandler.setLevel(logging.DEBUG)
-#
-#     if display == True:
-#         logger.addHandler(streamHandler)
-#
-#     logger.addHandler(fileHandler)
-#
-#     logger.setLevel(eval('logging.{}'.format(logging_level)))
-#
-#     return logger
-
-
 # Customized Logger
 class CustomLogger:
     def __init__(self, name, path, log_file, logging_level, display_flag=True, result_flag=True):
@@ -101,7 +71,6 @@ class CustomLogger:
         stream_handler = logging.StreamHandler()
         stream_handler.setFormatter(stream_formatter)
         stream_handler.setLevel(logging.INFO)
-
 
         log_formatter = logging.Formatter('%(message)s')
         log_handler = logging.FileHandler(os.path.join('log', path, log_file + '.log'))
@@ -133,25 +102,3 @@ def float2str_list(input_list):
 
 def int2str_list(input_list):
     return ','.join('{}'.format(int(item)) for item in input_list)
-
-
-def calc_seq_trend(seq):
-    zeros = np.zeros(shape=(seq.shape[0], 1))
-    seq_right = np.hstack((seq, zeros))
-    seq_left = np.hstack((zeros, seq))
-
-    seq_diff = (seq_right-seq_left)[:,1:-1]
-    increase_count = len(np.where(seq_diff>0)[0])
-    decrease_count = len(np.where(seq_diff<0)[0])
-
-    return increase_count, decrease_count
-
-
-def calc_rmse_with_ones(seq):
-    ones = np.ones_like(seq)
-    return np.sqrt(np.average(np.square(seq-ones), axis=0))
-
-
-def calc_diff_with_ones(seq):
-    ones = np.ones_like(seq)
-    return np.average((ones-seq), axis=0)

@@ -5,14 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
 from torch.utils.data import *
-
-import torchvision
-import torchvision.transforms as transforms
-
-torch.set_default_tensor_type(torch.FloatTensor)
-torch.set_default_dtype(torch.float)
 
 class Net(nn.Module):
     def __init__(self):
@@ -68,15 +61,13 @@ class AttackModel(nn.Module):
 class MIADataset(Dataset):
     def __init__(self, name, mia_data_dir):
         self.mia_data = pd.read_csv(os.path.join(mia_data_dir, name), header=None)
-        # self.root_dir = root_dir
-        # self.transform = transform
 
     def __len__(self):
         return len(self.mia_data)
 
     def __getitem__(self, idx):
-        x1 = self.mia_data.iloc[idx, 0:-2].values.astype(np.float32)
-        x2 = self.mia_data.iloc[idx, -2].astype(np.float32)
+        x1 = self.mia_data.iloc[idx, 0:-2].values
+        x2 = self.mia_data.iloc[idx, -2]
         label = self.mia_data.iloc[idx, -1]
 
         return [x1, x2, label]
